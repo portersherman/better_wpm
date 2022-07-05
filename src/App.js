@@ -241,7 +241,7 @@ class App extends Component {
 					</div>
 				</section>
 				<footer>
-					<p>&copy; Porter Sherman 2020</p>
+					<p>&copy; Porter Sherman 2022</p>
 				</footer>
 			</div>
 		);

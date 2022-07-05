@@ -1,9 +1,12 @@
 import React, { Component, Fragment } from "react"
+import getRandomWords from "random-words";
+import injectSheet from 'react-jss';
+
 import Metrics from "./util/Metrics";
 import Word from "./util/Word";
-import './App.scss';
+import { styles } from "./styles"
 
-import getRandomWords from "random-words";
+const UPDATE_RATE = 500;
 
 class App extends Component {
 	constructor(props) {
@@ -12,24 +15,27 @@ class App extends Component {
 		this.state = {
 			words: [],
 			millis: 0,
-			metrics: new Metrics(0, 0)
+			metrics: new Metrics(0, 0),
+			complete: false,
+			preferencesOpen: false,
+			textLength: 50
 		}
 
 		this.expectedText = this.getExpectedText();
 		this.actualText = [];
 		this.inputBuffer = [];
-		
+
 		this.timer = undefined;
+		this.pauser = undefined;
 	}
 
 	getExpectedText = () => {
-		if (this.timer) {
-			window.clearInterval(this.timer);
-		}
-		return getRandomWords(100);
+		this.clearTimer();
+
+		return getRandomWords(this.state.textLength);
 	}
 
-	componentDidMount () {
+	componentDidMount() {
 		window.addEventListener("keydown", event => {
 			this.processKey(event.which || event.keyCode, event.key);
 		});
@@ -40,11 +46,18 @@ class App extends Component {
 	processKey(keyCode, keyAsString) {
 		let prevInputBufferLength = this.inputBuffer.length;
 
-		if (this.state.millis === 0) {
-			this.timer = window.setInterval(() => {
-				this.updateTimer();
-				this.updateMetrics();
-			}, 100);
+		if (keyCode === 13) {
+			if (this.state.complete) {
+				this.reset();
+			} else {
+				this.setState({
+					complete: true
+				});
+
+				this.clearTimer();
+			}
+
+			return;
 		}
 
 		if ((keyCode >= 65 && keyCode <= 90)) {
@@ -68,11 +81,33 @@ class App extends Component {
 		if (this.inputBuffer.length !== prevInputBufferLength) {
 			this.actualText = this.inputBuffer.length > 0 ? this.inputBuffer.join("").split(" ") : [];
 			this.updateWords();
+
+			if (this.state.complete) {
+				this.setState({
+					complete: false
+				});
+			}
+
+			this.clearPauser();
+			this.pauser = window.setTimeout(() => {
+				this.clearTimer();
+			}, 1000)
+
+			if (!this.timer) {
+				this.timer = window.setInterval(() => {
+					this.updateTimer(UPDATE_RATE);
+					this.updateMetrics();
+				}, UPDATE_RATE);
+			}
 		}
 	}
 
 	updateWords() {
 		let words = [];
+
+		if (this.actualText.length > this.state.textLength) {
+			this.clearTimer()
+		}
 
 		this.expectedText.forEach((expected, index) => {
 			let actual = index >= this.actualText.length ? "" : this.actualText[index];
@@ -84,18 +119,43 @@ class App extends Component {
 		});
 	}
 
+	clearPauser () {
+		if (!!this.pauser) {
+			window.clearTimeout(this.pauser)
+			this.pauser = undefined
+		}
+	}
+
+	clearTimer() {
+		if (!!this.timer) {
+			window.clearInterval(this.timer)
+			this.timer = undefined;
+		}
+	}
+
 	reset() {
-		this.setState({ millis: 0 }, () => {
+		this.setState({
+			millis: 0,
+			complete: false
+		}, () => {
 			this.expectedText = this.getExpectedText();
 			this.actualText = [];
 			this.inputBuffer = [];
 			this.updateWords();
 			this.updateMetrics();
+			this.clearTimer();
+			this.clearPauser();
 		});
 	}
 
-	updateTimer() {
-		this.setState({ millis: this.state.millis + 1 });
+	togglePreferences = () => {
+		this.setState(prevState => ({
+			preferencesOpen: !prevState.preferencesOpen
+		}));
+	}
+
+	updateTimer(interval) {
+		this.setState({ millis: this.state.millis + interval });
 	}
 
 	updateMetrics() {
@@ -120,20 +180,34 @@ class App extends Component {
 
 	render() {
 		return (
-			<Fragment>
+			<div className={this.props.classes.container}>
 				<header>
-					<img src={"/logo.png"} id={"logo"} alt={"logo"}/>
+					<a href={"https://github.com/portersherman/better_wpm"} target={"_blank"} rel={"noopener noreferrer"}>
+						<img src={"/logo.png"} id={"logo"} alt={"logo"}/>
+					</a>
 					<h1>Better WPM</h1>
-					<div className={"clickable headerButton"} id={"pref"} onClick={() => this.reset()}>
+					<div className={this.props.classes.clickable} onClick={() => this.reset()}>
 						<img src={"/refresh.png"} alt={"refresh the word list"} />
 					</div>
-					{/*<div className={"clickable headerButton"}>*/}
-					{/*	<img src={"/pref.png"} alt={"open preferences"}/>*/}
-					{/*</div>*/}
+					<div className={this.props.classes.clickable} onClick={() => this.togglePreferences()}>
+						<img src={"/pref.png"} alt={"open preferences"}/>
+					</div>
+					{ this.state.preferencesOpen &&
+						<Fragment>
+							{[100, 50, 25].map(n => (
+								<div key={n} className={this.props.classes.clickable} onClick={() => {
+									this.setState({ textLength: n }, this.reset);
+								}}>
+									<p className={this.state.textLength === n ? "correct" : null}>{n}</p>
+								</div>
+							))}
+						</Fragment>
+					}
 				</header>
 				<section id={"evaluation"}>
 					<div id={"paragraphContainer"}>
 						{this.state.words.map(word => word.toHTML())}
+						<p className={this.state.complete ? "correct" : "neutral"}>⏎</p>
 					</div>
 					<div id={"legendContainer"}>
 						<p className={"neutral"}>untyped</p>
@@ -143,7 +217,7 @@ class App extends Component {
 					</div>
 					<div id={"scoreContainer"}>
 						<h1>
-							{this.state.metrics.getScore(this.state.millis / 10)}
+							{this.state.metrics.getScore(this.state.millis / 1000)}
 						</h1>
 						<p>words per minute</p>
 					</div>
@@ -169,9 +243,11 @@ class App extends Component {
 				<footer>
 					<p>&copy; Porter Sherman 2020</p>
 				</footer>
-			</Fragment>
+			</div>
 		);
 	}
 }
 
-export default App;
+const StyledApp = injectSheet(styles)(App);
+
+export default StyledApp;

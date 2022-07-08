@@ -3,6 +3,7 @@ import getRandomWords from "random-words";
 
 import Metrics from "../util/Metrics";
 import Word from "../util/Word";
+import Image from "next/image"
 
 const UPDATE_RATE = 500;
 
@@ -191,14 +192,14 @@ class Home extends Component {
 			<Fragment>
 				<header>
 					<a href={"https://github.com/portersherman/better_wpm"} target={"_blank"} rel={"noopener noreferrer"}>
-						<img src={"/logo.png"} id={"logo"} alt={"logo"}/>
+						<Image src={"/logo.png"} id={"logo"} alt={"logo"}/>
 					</a>
 					<h1>Better WPM</h1>
 					<div className={"clickable"} onClick={() => this.reset()}>
-						<img src={"/refresh.png"} alt={"refresh the word list"} />
+						<Image src={"/refresh.png"} alt={"refresh the word list"} />
 					</div>
 					<div className={"clickable"} onClick={() => this.togglePreferences()}>
-						<img src={"/pref.png"} alt={"open preferences"}/>
+						<Image src={"/pref.png"} alt={"open preferences"}/>
 					</div>
 					{ this.state.preferencesOpen &&
 						<Fragment>
